@@ -22,31 +22,37 @@ static const char INDEX_HTML[] PROGMEM = R"HTML(
 <style>
   :root { --bg:#0f1419; --card:#1a2332; --fg:#e7ecf3; --muted:#8b9bb4; --accent:#3dbbdb; --danger:#e85d5d; --border:#2a3548; }
   * { box-sizing:border-box; }
-  body { margin:0; font-family:system-ui,-apple-system,sans-serif; background:var(--bg); color:var(--fg); padding:1.25rem; }
-  h1 { font-size:1.35rem; margin:0 0 0.25rem; }
-  .sub { color:var(--muted); margin-bottom:1.25rem; font-size:0.9rem; }
-  section { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:1rem; margin-bottom:1rem; }
-  h2 { font-size:1rem; margin:0 0 0.75rem; color:var(--accent); }
-  table { width:100%; border-collapse:collapse; font-size:0.9rem; }
-  th,td { text-align:left; padding:0.5rem 0.4rem; border-bottom:1px solid var(--border); vertical-align:middle; }
-  th { color:var(--muted); font-weight:600; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.04em; }
-  input[type=text],input[type=number] { width:100%; max-width:8rem; background:#0f1419; border:1px solid var(--border); color:var(--fg); border-radius:6px; padding:0.35rem 0.5rem; }
-  input.name { max-width:12rem; }
-  .uid { font-family:ui-monospace,monospace; font-size:0.8rem; color:var(--muted); }
-  button { cursor:pointer; border:none; border-radius:6px; padding:0.4rem 0.75rem; font-weight:600; background:var(--accent); color:#062029; }
+  body { margin:0; font-family:system-ui,-apple-system,sans-serif; background:var(--bg); color:var(--fg); padding:0.75rem; }
+  h1 { font-size:1.2rem; margin:0 0 0.2rem; }
+  .sub { color:var(--muted); margin-bottom:0.9rem; font-size:0.85rem; }
+  section { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:0.75rem; margin-bottom:0.75rem; }
+  h2 { font-size:0.95rem; margin:0 0 0.6rem; color:var(--accent); }
+  table { width:100%; border-collapse:collapse; font-size:0.85rem; table-layout:fixed; }
+  th,td { text-align:left; padding:0.45rem 0.25rem; border-bottom:1px solid var(--border); vertical-align:middle; }
+  th { color:var(--muted); font-weight:600; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.03em; }
+  col.uid { width:4.6rem; }
+  col.name { width:auto; }
+  col.tok { width:3.6rem; }
+  col.act { width:5.5rem; }
+  input[type=text],input[type=number] { width:100%; background:#0f1419; border:1px solid var(--border); color:var(--fg); border-radius:6px; padding:0.35rem 0.4rem; font-size:0.85rem; }
+  input.tok { text-align:right; }
+  .uid { font-family:ui-monospace,monospace; font-size:0.65rem; color:var(--muted); word-break:break-all; line-height:1.2; }
+  button { cursor:pointer; border:none; border-radius:6px; padding:0.35rem 0.5rem; font-weight:600; font-size:0.75rem; background:var(--accent); color:#062029; }
   button.secondary { background:#2a3548; color:var(--fg); }
   button.danger { background:var(--danger); color:#fff; }
   button:disabled { opacity:0.5; cursor:default; }
+  .acts { display:flex; flex-direction:column; gap:0.25rem; }
   .row { display:flex; flex-wrap:wrap; gap:0.5rem; align-items:center; margin-top:0.5rem; }
-  .msg { margin-top:0.75rem; font-size:0.85rem; color:var(--muted); min-height:1.2em; }
+  .row input.name { flex:1; min-width:8rem; }
+  .msg { margin-top:0.6rem; font-size:0.8rem; color:var(--muted); min-height:1.2em; }
   .msg.err { color:var(--danger); }
   .msg.ok { color:#6bcf8e; }
-  .last { font-family:ui-monospace,monospace; }
+  .last { font-family:ui-monospace,monospace; font-size:0.75rem; word-break:break-all; }
 </style>
 </head>
 <body>
   <h1>Token Machine</h1>
-  <p class="sub">Admin panel — SoftAP</p>
+  <p class="sub">Admin panel</p>
 
   <section>
     <h2>Register tag</h2>
@@ -66,7 +72,13 @@ static const char INDEX_HTML[] PROGMEM = R"HTML(
   <section>
     <h2>Registered tags</h2>
     <table>
-      <thead><tr><th>UID</th><th>Name</th><th>Tokens</th><th></th></tr></thead>
+      <colgroup>
+        <col class="uid"/>
+        <col class="name"/>
+        <col class="tok"/>
+        <col class="act"/>
+      </colgroup>
+      <thead><tr><th>UID</th><th>Name</th><th>Tok</th><th></th></tr></thead>
       <tbody id="tbody"></tbody>
     </table>
     <div class="msg" id="listMsg"></div>
@@ -105,13 +117,13 @@ async function loadTags() {
     tags.forEach(tag => {
       const tr = document.createElement('tr');
       tr.innerHTML =
-        '<td class="uid">'+tag.uid+'</td>'+
-        '<td><input class="name" type="text" value="'+esc(tag.name)+'" data-uid="'+tag.uid+'" data-field="name" maxlength="32"/></td>'+
-        '<td><input type="number" min="0" value="'+tag.tokens+'" data-uid="'+tag.uid+'" data-field="tokens"/></td>'+
-        '<td class="row">'+
+        '<td class="uid" title="'+tag.uid+'">'+shortUid(tag.uid)+'</td>'+
+        '<td><input type="text" value="'+esc(tag.name)+'" data-uid="'+tag.uid+'" data-field="name" maxlength="32"/></td>'+
+        '<td><input class="tok" type="number" min="0" value="'+tag.tokens+'" data-uid="'+tag.uid+'" data-field="tokens"/></td>'+
+        '<td><div class="acts">'+
           '<button type="button" onclick="saveTag(\''+tag.uid+'\', this)">Save</button>'+
-          '<button type="button" class="danger" onclick="deleteTag(\''+tag.uid+'\')">Delete</button>'+
-        '</td>';
+          '<button type="button" class="danger" onclick="deleteTag(\''+tag.uid+'\')">Del</button>'+
+        '</div></td>';
       tb.appendChild(tr);
     });
     if (!tags.length) setMsg('listMsg', 'No tags registered yet.', true);
@@ -123,6 +135,11 @@ async function loadTags() {
 
 function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+}
+
+function shortUid(uid) {
+  if (uid.length <= 8) return uid;
+  return uid.slice(0, 4) + '..' + uid.slice(-4);
 }
 
 function rowValues(uid) {

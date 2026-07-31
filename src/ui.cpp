@@ -33,14 +33,9 @@ void showIdle() {
 void showDashboard(const String& name, uint32_t tokens, int logoutSeconds) {
   lcd.fillScreen(COL_BG);
 
-  drawCentered(name, 50, 4, COL_ACCENT);
-
-  lcd.setTextDatum(MC_DATUM);
-  lcd.setTextColor(COL_MUTED, COL_BG);
-  lcd.drawString("High Fives", lcd.width() / 2, 100, 2);
-
+  drawCentered(name, 50, 4, COL_ACCENT);  
+  drawCentered("High Fives", 100, 2, COL_MUTED);
   drawCentered(String(tokens), 140, 6, COL_FG);
-
   drawCentered("Tap card again to add High Fives", 195, 2, COL_MUTED);
 
   if (logoutSeconds >= 0) {
