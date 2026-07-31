@@ -27,7 +27,7 @@ static void drawCentered(const String& text, int16_t y, uint8_t font, uint16_t c
 
 void showIdle() {
   lcd.fillScreen(COL_BG);
-  drawCentered("Waiting for tag...", lcd.height() / 2, 4, COL_FG);
+  drawCentered("Waiting for card...", lcd.height() / 2, 4, COL_FG);
 }
 
 void showDashboard(const String& name, uint32_t tokens, int logoutSeconds) {
@@ -37,11 +37,11 @@ void showDashboard(const String& name, uint32_t tokens, int logoutSeconds) {
 
   lcd.setTextDatum(MC_DATUM);
   lcd.setTextColor(COL_MUTED, COL_BG);
-  lcd.drawString("Tokens", lcd.width() / 2, 100, 2);
+  lcd.drawString("High Fives", lcd.width() / 2, 100, 2);
 
   drawCentered(String(tokens), 140, 6, COL_FG);
 
-  drawCentered("Present tag to add tokens", 195, 2, COL_MUTED);
+  drawCentered("Tap card again to add High Fives", 195, 2, COL_MUTED);
 
   if (logoutSeconds >= 0) {
     String msg = "Logging out in ";
@@ -53,7 +53,7 @@ void showDashboard(const String& name, uint32_t tokens, int logoutSeconds) {
 
 void showUnknown(const String& uid) {
   lcd.fillScreen(COL_BG);
-  drawCentered("Unknown tag", lcd.height() / 2 - 20, 4, COL_WARN);
+  drawCentered("Unknown card", lcd.height() / 2 - 20, 4, COL_WARN);
   if (uid.length() > 0) {
     drawCentered(uid, lcd.height() / 2 + 20, 2, COL_MUTED);
   }
