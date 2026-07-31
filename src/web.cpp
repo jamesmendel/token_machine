@@ -2,6 +2,7 @@
 
 #include <WiFi.h>
 #include <ESPAsyncWebServer.h>
+#include <ESPmDNS.h>
 #include <ArduinoJson.h>
 #include "config.h"
 #include "tag_db.h"
@@ -226,6 +227,12 @@ bool begin() {
   }
   IPAddress ip = WiFi.softAPIP();
   ESP_LOGI("WEB", "AP '%s' IP %s", WIFI_AP_SSID, ip.toString().c_str());
+  
+  if (!MDNS.begin(MDNS_HOSTNAME)) {
+    ESP_LOGE("WEB", "Error setting up MDNS responder!");
+      }
+  ESP_LOGI("WEB", "mDNS responder started for http://%s.local", MDNS_HOSTNAME);
+
 
   server.on("/", HTTP_GET, [](AsyncWebServerRequest* request) {
     request->send(200, "text/html", INDEX_HTML);
