@@ -18,6 +18,7 @@ static String sessionUid;
 static String sessionName;
 static uint32_t sessionTokens = 0;
 static bool tagWasRemoved = false;  // true after Disappeared while in session
+static bool tagPresent = false;
 static uint32_t lastActivityMs = 0;
 static int lastCountdownShown = -1;
 static uint32_t unknownSinceMs = 0;
@@ -28,13 +29,14 @@ static void enterIdle() {
   sessionName = "";
   sessionTokens = 0;
   tagWasRemoved = false;
+  tagPresent = false;
   lastCountdownShown = -1;
   Ui::showIdle();
   ESP_LOGI("APP", "State: Idle");
 }
 
 static void refreshDashboard(int logoutSeconds = -1) {
-  Ui::showDashboard(sessionName, sessionTokens, logoutSeconds);
+  Ui::showDashboard(sessionName, sessionTokens, tagPresent, logoutSeconds);
 }
 
 static void enterDashboard(const String& uid, const String& name, uint32_t tokens, bool increment) {
@@ -49,6 +51,7 @@ static void enterDashboard(const String& uid, const String& name, uint32_t token
   }
 
   tagWasRemoved = false;
+  tagPresent = true;
   lastActivityMs = millis();
   lastCountdownShown = -1;
   state = State::Dashboard;
@@ -76,6 +79,14 @@ static void noteActivity() {
   }
 }
 
+static void setSessionTagPresent(bool present) {
+  if (tagPresent == present) return;
+  tagPresent = present;
+  if (state == State::Dashboard || state == State::Countdown) {
+    Ui::setTagPresent(present);
+  }
+}
+
 void begin() {
   enterIdle();
 }
@@ -90,6 +101,7 @@ void onRfidEvent(const RfidEvent& event) {
       if (state == State::Dashboard || state == State::Countdown) {
         if (event.uid.equalsIgnoreCase(sessionUid)) {
           tagWasRemoved = true;
+          setSessionTagPresent(false);
           noteActivity();
         }
       } else if (state == State::Unknown) {
@@ -119,6 +131,7 @@ void onRfidEvent(const RfidEvent& event) {
             TagDb::get(event.uid, name, tokens);  // refresh in case web edited
             enterDashboard(event.uid, name, tokens, true);
           } else {
+            setSessionTagPresent(true);
             noteActivity();
           }
         } else {
