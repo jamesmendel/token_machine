@@ -9,7 +9,7 @@ Features:
 - Sound effects
 - Web admin panel
 
-Built with platformio.
+Built with PlatformIO.
 
 `AI Transparency` - LLM Agents were used to assist in the development of this project.
 
@@ -50,6 +50,32 @@ Generally, the code is modularized at a subsystem level:
 
 `assets/` are prepared with tools in the `scripts/` folder and placed in `src/*_data`
 
+## Build instructions
+Prerequisites:
+1. Git
+2. [VSCode + PlatformIO Extension](https://marketplace.visualstudio.com/items?itemName=platformio.platformio-ide) or [PlatformIO IDE](https://platformio.org/install)
+3. Hardware minimal setup: ESP32-S3, LCD, RFID Reader
+
+Clone the repo:
+```bash
+git clone https://github.com/jamesmendel/token_machine.git
+cd token_machine
+```
+
+Build:
+```bash
+pio run
+```
+
+Upload Firmware:
+```bash
+pio run -t upload
+```
+
+Monitor Serial:
+```bash
+pio device monitor -b 115200
+```
 
 ## Hardware
 The following hardware is needed:
