@@ -3,6 +3,7 @@
 #include <WiFi.h>
 #include <ESPAsyncWebServer.h>
 #include <ESPmDNS.h>
+#include <DNSServer.h>
 #include <ArduinoJson.h>
 #include "config.h"
 #include "tag_db.h"
@@ -11,6 +12,7 @@
 namespace Web {
 
 static AsyncWebServer server(80);
+static DNSServer dnsServer;
 
 static const char INDEX_HTML[] PROGMEM = R"HTML(
 <!DOCTYPE html>
@@ -33,8 +35,8 @@ static const char INDEX_HTML[] PROGMEM = R"HTML(
   col.uid { width:4.6rem; }
   col.name { width:auto; }
   col.tok { width:3.6rem; }
-  col.act { width:5.5rem; }
-  input[type=text],input[type=number] { width:100%; background:#0f1419; border:1px solid var(--border); color:var(--fg); border-radius:6px; padding:0.35rem 0.4rem; font-size:0.85rem; }
+  col.act { width:4rem; }
+  input[type=text],input[type=number] { width:100%; background:#0f1419; border:1px solid var(--border); color:var(--fg); border-radius:6px; padding:0.35rem 0.4rem; font-size:max(0.85rem, 16px); }
   input.tok { text-align:right; }
   .uid { font-family:ui-monospace,monospace; font-size:0.65rem; color:var(--muted); word-break:break-all; line-height:1.2; }
   button { cursor:pointer; border:none; border-radius:6px; padding:0.35rem 0.5rem; font-weight:600; font-size:0.75rem; background:var(--accent); color:#062029; }
@@ -248,11 +250,33 @@ bool begin() {
   if (!MDNS.begin(MDNS_HOSTNAME)) {
     ESP_LOGE("WEB", "Error setting up MDNS responder!");
       }
-  ESP_LOGI("WEB", "mDNS responder started for http://%s.local", MDNS_HOSTNAME);
+  ESP_LOGI("WEB", "mDNS responder started for http://" MDNS_HOSTNAME ".local");
 
+  // Setup routes for captive portal checks
+  dnsServer.setTTL(3600);
+  dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
+  if(!dnsServer.start(53, "*", WiFi.softAPIP())) {
+    ESP_LOGW("WEB", "Could not start DNS server for captive portal requests.");
+  }
+  // Modified from https://github.com/CDFER/Captive-Portal-ESP32/blob/main/src/main.cpp
+  const String localIPURL = "http://" MDNS_HOSTNAME ".local";
+  // Background responses: Probably not all are Required, but some are. Others might speed things up?
+  server.on("/connecttest.txt", [](AsyncWebServerRequest *request) { request->redirect("http://logout.net"); });	        // windows 11 captive portal workaround
+  server.on("/wpad.dat", [](AsyncWebServerRequest *request) { request->send(404); });								    // Honestly don't understand what this is but a 404 stops win 10 keep calling this repeatedly and panicking the esp32 :)
+  server.on("/generate_204", [localIPURL](AsyncWebServerRequest *request) { request->redirect(localIPURL); });		    // android captive portal redirect
+  server.on("/redirect", [localIPURL](AsyncWebServerRequest *request) { request->redirect(localIPURL); });			    // microsoft redirect
+  server.on("/hotspot-detect.html", [localIPURL](AsyncWebServerRequest *request) { request->redirect(localIPURL); });    // apple call home
+  server.on("/canonical.html", [localIPURL](AsyncWebServerRequest *request) { request->redirect(localIPURL); });	        // firefox captive portal call home
+  server.on("/success.txt", [](AsyncWebServerRequest *request) { request->send(200); });					                // firefox captive portal call home
+  server.on("/ncsi.txt", [localIPURL](AsyncWebServerRequest *request) { request->redirect(localIPURL); });			    // windows call home
 
   server.on("/", HTTP_GET, [](AsyncWebServerRequest* request) {
     request->send(200, "text/html", INDEX_HTML);
+  });
+
+  server.onNotFound([&](AsyncWebServerRequest *request){
+      ESP_LOGW("WEB", "NOT FOUND: %s - Serving index", request->url());
+      request->send(404); 
   });
 
   server.on("/api/tags", HTTP_GET, [](AsyncWebServerRequest* request) {
@@ -365,6 +389,7 @@ bool begin() {
 }
 
 void handleClient() {
+  dnsServer.processNextRequest();
   // AsyncWebServer runs in the background; nothing to poll.
 }
 
