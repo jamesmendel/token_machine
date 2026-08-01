@@ -6,9 +6,23 @@
 static const uint8_t RFID_I2C_ADDR = 0x28;
 static const int RFID_SDA_PIN = 16;
 static const int RFID_SCL_PIN = 15;
-static const int RFID_RST_PIN = 1;
+static const int RFID_RST_PIN = 42;  // dummy: RST not wired (chip always enabled)
 static const uint8_t RFID_GONE_DEBOUNCE_POLLS = 4;
 static const uint32_t RFID_POLL_INTERVAL_MS = 50;
+
+// Audio (ES8311 + I2S speaker)
+static const int AUDIO_PA_ENABLE_PIN = 1;
+static const bool AUDIO_PA_ACTIVE_HIGH = false;
+static const int AUDIO_I2S_MCLK_PIN = 4;
+static const int AUDIO_I2S_BCLK_PIN = 5;
+static const int AUDIO_I2S_WS_PIN = 7;
+static const int AUDIO_I2S_DOUT_PIN = 8;
+static const int AUDIO_I2S_DIN_PIN = 6;  // unused for TX-only playback
+static const int AUDIO_I2S_PORT = 1;     // I2S_NUM_1
+static const int AUDIO_SAMPLE_RATE = 16000;
+static const int AUDIO_MCLK_MULTIPLE = 384;
+static const int AUDIO_VOICE_VOLUME = 85;
+static const uint8_t AUDIO_ES8311_ADDR = 0x18;
 
 // Session timeouts
 static const uint32_t SESSION_COUNTDOWN_START_MS = 2000;  // show logout countdown

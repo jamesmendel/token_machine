@@ -1,6 +1,7 @@
 #include <Arduino.h>
 
 #include "app.h"
+#include "audio.h"
 #include "rfid.h"
 #include "tag_db.h"
 #include "ui.h"
@@ -23,6 +24,9 @@ void setup() {
   Ui::begin();
   if (!Rfid::begin()) {
     ESP_LOGW(LOGTAG, "RFID init may have failed (bad version read)");
+  }
+  if (!Audio::begin()) {
+    ESP_LOGW(LOGTAG, "Audio init failed (speaker disabled)");
   }
   if (!Web::begin()) {
     ESP_LOGE(LOGTAG, "Web SoftAP init failed");

@@ -48,6 +48,9 @@ static bool tryReadUid(String& uidOut) {
 
 bool begin() {
   Wire.begin(RFID_SDA_PIN, RFID_SCL_PIN);
+  Wire.setClock(400000);
+  ESP_LOGI("RFID", "I2C bus @ 400 kHz");
+
   mfrc.PCD_Init();
   byte version = mfrc.PCD_ReadRegister(mfrc.VersionReg);
   ESP_LOGI("RFID", "MFRC522 Firmware Version: 0x%X", version);

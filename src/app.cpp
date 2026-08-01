@@ -1,5 +1,6 @@
 #include "app.h"
 
+#include "audio.h"
 #include "config.h"
 #include "tag_db.h"
 #include "ui.h"
@@ -48,6 +49,9 @@ static void enterDashboard(const String& uid, const String& name, uint32_t token
     sessionTokens++;
     TagDb::setTokens(sessionUid, sessionTokens);
     ESP_LOGI("APP", "Increment %s -> %u", sessionUid.c_str(), (unsigned)sessionTokens);
+    Audio::playToken();
+  } else {
+    Audio::playLogin();
   }
 
   tagWasRemoved = false;
