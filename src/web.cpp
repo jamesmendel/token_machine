@@ -121,7 +121,7 @@ async function loadTags() {
       tr.innerHTML =
         '<td class="uid" title="'+tag.uid+'">'+shortUid(tag.uid)+'</td>'+
         '<td><input type="text" value="'+esc(tag.name)+'" data-uid="'+tag.uid+'" data-field="name" maxlength="32"/></td>'+
-        '<td><input class="tok" type="number" min="0" value="'+tag.tokens+'" data-uid="'+tag.uid+'" data-field="tokens"/></td>'+
+        '<td><input class="tok" type="number" pattern="[0-9]*" min="0" value="'+tag.tokens+'" data-uid="'+tag.uid+'" data-field="tokens"/></td>'+
         '<td><div class="acts">'+
           '<button type="button" onclick="saveTag(\''+tag.uid+'\', this)">Save</button>'+
           '<button type="button" class="danger" onclick="deleteTag(\''+tag.uid+'\')">Del</button>'+
@@ -239,13 +239,14 @@ static String collectBody(uint8_t* data, size_t len, size_t index, size_t total,
 
 bool begin() {
   WiFi.mode(WIFI_AP);
-  bool ok = WiFi.softAP(WIFI_AP_SSID, WIFI_AP_PASS, WIFI_AP_CHANNEL, 0, WIFI_AP_MAX_CONN);
+  bool ok = WiFi.softAP(WIFI_AP_SSID, WIFI_AP_PASS, WIFI_AP_CHANNEL, 0, WIFI_AP_MAX_CONN, false, WIFI_AUTH_WPA2_WPA3_PSK);
+  // bool ok = WiFi.softAP(WIFI_AP_SSID, WIFI_AP_PASS, WIFI_AP_CHANNEL, 0, WIFI_AP_MAX_CONN);
   if (!ok) {
     ESP_LOGE("WEB", "softAP failed");
     return false;
   }
   IPAddress ip = WiFi.softAPIP();
-  ESP_LOGI("WEB", "AP '%s' IP %s", WIFI_AP_SSID, ip.toString().c_str());
+  ESP_LOGI("WEB", "AP '%s' PASS: %s IP: %s", WIFI_AP_SSID, WIFI_AP_PASS, ip.toString().c_str());
   
   if (!MDNS.begin(MDNS_HOSTNAME)) {
     ESP_LOGE("WEB", "Error setting up MDNS responder!");
