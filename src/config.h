@@ -21,12 +21,12 @@ static const int AUDIO_I2S_DIN_PIN = 6;  // unused for TX-only playback
 static const int AUDIO_I2S_PORT = 1;     // I2S_NUM_1
 static const int AUDIO_SAMPLE_RATE = 16000;
 static const int AUDIO_MCLK_MULTIPLE = 384;
-static const int AUDIO_VOICE_VOLUME = 85;
+static const int AUDIO_VOICE_VOLUME = 70;
 static const uint8_t AUDIO_ES8311_ADDR = 0x18;
 
 // Session timeouts
-static const uint32_t SESSION_COUNTDOWN_START_MS = 2000;  // show logout countdown
-static const uint32_t SESSION_LOGOUT_MS = 5000;           // return to idle
+static const uint32_t SESSION_COUNTDOWN_START_MS = 1000;  // show logout countdown
+static const uint32_t SESSION_LOGOUT_MS = 4000;           // return to idle
 static const uint32_t UNKNOWN_TAG_TIMEOUT_MS = 3000;
 
 // SoftAP

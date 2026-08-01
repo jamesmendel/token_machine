@@ -11,6 +11,7 @@
 #include "esp_err.h"
 #include "esp_check.h"
 #include "es8311_reg.h"
+#include "config.h"
 
 typedef struct {
     i2c_port_t port;
@@ -478,13 +479,13 @@ esp_err_t es8311_codec_init(void)
         .mclk_inverted = false,
         .sclk_inverted = false,
         .mclk_from_mclk_pin = true,
-        .mclk_frequency = EXAMPLE_MCLK_FREQ_HZ,
-        .sample_frequency = EXAMPLE_SAMPLE_RATE
+        .mclk_frequency = AUDIO_SAMPLE_RATE * AUDIO_MCLK_MULTIPLE,
+        .sample_frequency = AUDIO_SAMPLE_RATE
     };
 
     ESP_RETURN_ON_ERROR(es8311_init(es_handle, &es_clk, ES8311_RESOLUTION_16, ES8311_RESOLUTION_16), TAG, "es8311_init failed");
-    ESP_RETURN_ON_ERROR(es8311_sample_frequency_config(es_handle, EXAMPLE_SAMPLE_RATE * EXAMPLE_MCLK_MULTIPLE, EXAMPLE_SAMPLE_RATE), TAG, "set es8311 sample frequency failed");
-    ESP_RETURN_ON_ERROR(es8311_voice_volume_set(es_handle, EXAMPLE_VOICE_VOLUME, NULL), TAG, "set es8311 volume failed");
+    ESP_RETURN_ON_ERROR(es8311_sample_frequency_config(es_handle, AUDIO_SAMPLE_RATE * AUDIO_MCLK_MULTIPLE, AUDIO_SAMPLE_RATE), TAG, "set es8311 sample frequency failed");
+    ESP_RETURN_ON_ERROR(es8311_voice_volume_set(es_handle, AUDIO_VOICE_VOLUME, NULL), TAG, "set es8311 volume failed");
     ESP_RETURN_ON_ERROR(es8311_microphone_config(es_handle, false), TAG, "set es8311 microphone failed");
     ESP_RETURN_ON_ERROR(es8311_voice_mute(es_handle, false), TAG, "unmute failed");
     return ESP_OK;
