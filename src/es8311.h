@@ -21,6 +21,7 @@
 #define ES8311_ADDRESS_0 0x18u
 #define ES8311_ADDRESS_1 0x19u
 
+#define EXAMPLE_RECV_BUF_SIZE   (2400)
 #define EXAMPLE_SAMPLE_RATE     (16000)
 #define EXAMPLE_MCLK_MULTIPLE   (384) // If not using 24-bit data width, 256 should be enough
 #define EXAMPLE_MCLK_FREQ_HZ    (EXAMPLE_SAMPLE_RATE * EXAMPLE_MCLK_MULTIPLE)

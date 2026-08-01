@@ -50,5 +50,6 @@ encode_one() {
 }
 
 encode_one login
+encode_one logout
 encode_one token
 echo "done. Rebuild firmware to pick up new sounds."

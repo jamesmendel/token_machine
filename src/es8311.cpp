@@ -5,7 +5,6 @@
  */
 
 #include <string.h>
-#include <Wire.h>
 #include "es8311.h"
 #include "driver/gpio.h"
 #include "esp_log.h"
@@ -142,40 +141,17 @@ static const struct _coeff_div coeff_div[] = {
 
 static const char *TAG = "ES8311";
 
-// Prefer stop-then-read: ESP32 Arduino Wire repeated-start (endTransmission(false))
-// has been observed to leave the register pointer at 0x00, so chip-ID reads return
-// REG00/REG01 defaults (e.g. 0x03/0x01) instead of 0x83/0x11.
 static inline esp_err_t es8311_write_reg(es8311_handle_t dev, uint8_t reg_addr, uint8_t data)
 {
     es8311_dev_t *es = (es8311_dev_t *) dev;
-    Wire.beginTransmission(static_cast<uint8_t>(es->dev_addr));
-    Wire.write(reg_addr);
-    Wire.write(data);
-    const uint8_t err = Wire.endTransmission(true);
-    if (err != 0) {
-        ESP_LOGE(TAG, "I2C write reg 0x%02x failed (%u)", reg_addr, err);
-        return ESP_FAIL;
-    }
-    return ESP_OK;
+    const uint8_t write_buf[2] = {reg_addr, data};
+    return i2c_master_write_to_device(es->port, es->dev_addr, write_buf, sizeof(write_buf), pdMS_TO_TICKS(1000));
 }
 
 static inline esp_err_t es8311_read_reg(es8311_handle_t dev, uint8_t reg_addr, uint8_t *reg_value)
 {
     es8311_dev_t *es = (es8311_dev_t *) dev;
-    Wire.beginTransmission(static_cast<uint8_t>(es->dev_addr));
-    Wire.write(reg_addr);
-    const uint8_t err = Wire.endTransmission(true);  // STOP, then new read transaction
-    if (err != 0) {
-        ESP_LOGE(TAG, "I2C write-reg for read 0x%02x failed (%u)", reg_addr, err);
-        return ESP_FAIL;
-    }
-    const size_t n = Wire.requestFrom(static_cast<uint8_t>(es->dev_addr), static_cast<uint8_t>(1));
-    if (n != 1) {
-        ESP_LOGE(TAG, "I2C read reg 0x%02x failed (got %u)", reg_addr, (unsigned)n);
-        return ESP_FAIL;
-    }
-    *reg_value = Wire.read();
-    return ESP_OK;
+    return i2c_master_write_read_device(es->port, es->dev_addr, &reg_addr, 1, reg_value, 1, pdMS_TO_TICKS(1000));
 }
 
 /*
@@ -466,10 +442,11 @@ es8311_handle_t es8311_create(const i2c_port_t port, const uint16_t dev_addr)
 
 esp_err_t es8311_codec_init(void)
 {
-    /* Initialize es8311 codec (I2C via Arduino Wire; bus must already be begun) */
+    /* Initialize es8311 codec (I2C via ESP-IDF i2c_master; bus must already be active) */
     es8311_handle_t es_handle = es8311_create(I2C_NUM_0, ES8311_ADDRRES_0);
     ESP_RETURN_ON_FALSE(es_handle, ESP_FAIL, TAG, "es8311 create failed");
 
+    // --- Verify chip is responding on I2C before full init ---
     uint8_t id1 = 0, id2 = 0, ver = 0;
     if (es8311_read_reg(es_handle, ES8311_CHD1_REGFD, &id1) != ESP_OK ||
         es8311_read_reg(es_handle, ES8311_CHD2_REGFE, &id2) != ESP_OK ||
@@ -495,6 +472,7 @@ esp_err_t es8311_codec_init(void)
         es8311_delete(es_handle);
         return ESP_FAIL;
     }
+    // --- End diagnostics ---
 
     const es8311_clock_config_t es_clk = {
         .mclk_inverted = false,
@@ -507,7 +485,7 @@ esp_err_t es8311_codec_init(void)
     ESP_RETURN_ON_ERROR(es8311_init(es_handle, &es_clk, ES8311_RESOLUTION_16, ES8311_RESOLUTION_16), TAG, "es8311_init failed");
     ESP_RETURN_ON_ERROR(es8311_sample_frequency_config(es_handle, EXAMPLE_SAMPLE_RATE * EXAMPLE_MCLK_MULTIPLE, EXAMPLE_SAMPLE_RATE), TAG, "set es8311 sample frequency failed");
     ESP_RETURN_ON_ERROR(es8311_voice_volume_set(es_handle, EXAMPLE_VOICE_VOLUME, NULL), TAG, "set es8311 volume failed");
-    ESP_RETURN_ON_ERROR(es8311_voice_mute(es_handle, false), TAG, "unmute failed");
     ESP_RETURN_ON_ERROR(es8311_microphone_config(es_handle, false), TAG, "set es8311 microphone failed");
+    ESP_RETURN_ON_ERROR(es8311_voice_mute(es_handle, false), TAG, "unmute failed");
     return ESP_OK;
 }

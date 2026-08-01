@@ -1,8 +1,8 @@
 #include "audio.h"
 
 #include <Arduino.h>
-#include <Wire.h>
-#include <driver/i2s.h>
+#include <driver/i2s_std.h>
+#include <esp_log.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
 #include <freertos/task.h>
@@ -25,6 +25,7 @@ struct PlayRequest {
 };
 
 static QueueHandle_t playQueue = nullptr;
+static i2s_chan_handle_t txHandle = nullptr;
 static bool ready = false;
 
 static void setPa(bool enable) {
@@ -54,63 +55,70 @@ static void playTask(void* /*arg*/) {
         chunk = kChunkBytes;
       }
       size_t written = 0;
-      esp_err_t err = i2s_write(static_cast<i2s_port_t>(AUDIO_I2S_PORT),
-                               req.data + offset, chunk, &written, pdMS_TO_TICKS(1000));
+      esp_err_t err = i2s_channel_write(txHandle, req.data + offset, chunk, &written, pdMS_TO_TICKS(1000));
       if (err != ESP_OK) {
-        ESP_LOGE(LOGTAG, "i2s_write failed: %s", esp_err_to_name(err));
+        ESP_LOGE(LOGTAG, "i2s_channel_write failed: %s", esp_err_to_name(err));
         break;
       }
       if (written == 0) {
-        ESP_LOGW(LOGTAG, "i2s_write wrote 0 bytes");
+        ESP_LOGW(LOGTAG, "i2s_channel_write wrote 0 bytes");
         break;
       }
       offset += written;
     }
-    // Let DMA finish shifting out the last buffers (~8 * 256 frames stereo)
+    // Let DMA finish shifting out the last buffers
     vTaskDelay(pdMS_TO_TICKS(80));
+    setPa(false);
     ESP_LOGI(LOGTAG, "Play done (%u/%u bytes)", (unsigned)offset, (unsigned)req.len);
   }
 }
 
 static bool initI2sTx() {
-  i2s_config_t i2s_config = {};
-  i2s_config.mode = static_cast<i2s_mode_t>(I2S_MODE_MASTER | I2S_MODE_TX);
-  i2s_config.sample_rate = AUDIO_SAMPLE_RATE;
-  i2s_config.bits_per_sample = I2S_BITS_PER_SAMPLE_16BIT;
-  i2s_config.channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT;
-  i2s_config.communication_format = I2S_COMM_FORMAT_STAND_I2S;
-  i2s_config.intr_alloc_flags = ESP_INTR_FLAG_LEVEL1;
-  i2s_config.dma_buf_count = 8;
-  i2s_config.dma_buf_len = 256;
-  // APLL for accurate 16 kHz * 384 = 6.144 MHz MCLK expected by ES8311
-  i2s_config.use_apll = true;
-  i2s_config.tx_desc_auto_clear = true;
-  i2s_config.fixed_mclk = AUDIO_SAMPLE_RATE * AUDIO_MCLK_MULTIPLE;
-  i2s_config.mclk_multiple = I2S_MCLK_MULTIPLE_384;
-  i2s_config.bits_per_chan = I2S_BITS_PER_CHAN_DEFAULT;
+  i2s_chan_config_t chan_cfg = I2S_CHANNEL_DEFAULT_CONFIG((i2s_port_t)AUDIO_I2S_PORT, I2S_ROLE_MASTER);
+  chan_cfg.auto_clear = true;
+  esp_err_t err = i2s_new_channel(&chan_cfg, &txHandle, nullptr);  // TX only
+  if (err != ESP_OK) {
+    ESP_LOGE(LOGTAG, "i2s_new_channel failed: %s", esp_err_to_name(err));
+    return false;
+  }
 
-  i2s_pin_config_t pin_config = {
-      .mck_io_num = AUDIO_I2S_MCLK_PIN,
-      .bck_io_num = AUDIO_I2S_BCLK_PIN,
-      .ws_io_num = AUDIO_I2S_WS_PIN,
-      .data_out_num = AUDIO_I2S_DOUT_PIN,
-      .data_in_num = I2S_PIN_NO_CHANGE,
+  i2s_std_config_t std_cfg = {
+    .clk_cfg  = I2S_STD_CLK_DEFAULT_CONFIG(AUDIO_SAMPLE_RATE),
+    .slot_cfg = I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_STEREO),
+    .gpio_cfg = {
+      .mclk = (gpio_num_t)AUDIO_I2S_MCLK_PIN,
+      .bclk = (gpio_num_t)AUDIO_I2S_BCLK_PIN,
+      .ws   = (gpio_num_t)AUDIO_I2S_WS_PIN,
+      .dout = (gpio_num_t)AUDIO_I2S_DOUT_PIN,
+      .din  = I2S_GPIO_UNUSED,
+      .invert_flags = {
+        .mclk_inv = false,
+        .bclk_inv = false,
+        .ws_inv   = false,
+      },
+    },
   };
+  std_cfg.clk_cfg.mclk_multiple = (i2s_mclk_multiple_t)AUDIO_MCLK_MULTIPLE;
 
-  esp_err_t err = i2s_driver_install(static_cast<i2s_port_t>(AUDIO_I2S_PORT), &i2s_config, 0, nullptr);
+  err = i2s_channel_init_std_mode(txHandle, &std_cfg);
   if (err != ESP_OK) {
-    ESP_LOGE(LOGTAG, "i2s_driver_install failed: %s", esp_err_to_name(err));
+    ESP_LOGE(LOGTAG, "i2s_channel_init_std_mode failed: %s", esp_err_to_name(err));
+    i2s_del_channel(txHandle);
+    txHandle = nullptr;
     return false;
   }
-  err = i2s_set_pin(static_cast<i2s_port_t>(AUDIO_I2S_PORT), &pin_config);
+
+  err = i2s_channel_enable(txHandle);
   if (err != ESP_OK) {
-    ESP_LOGE(LOGTAG, "i2s_set_pin failed: %s", esp_err_to_name(err));
-    i2s_driver_uninstall(static_cast<i2s_port_t>(AUDIO_I2S_PORT));
+    ESP_LOGE(LOGTAG, "i2s_channel_enable failed: %s", esp_err_to_name(err));
+    i2s_del_channel(txHandle);
+    txHandle = nullptr;
     return false;
   }
-  ESP_LOGI(LOGTAG, "I2S TX ready port=%d mclk=%d bclk=%d ws=%d dout=%d",
-           AUDIO_I2S_PORT, AUDIO_I2S_MCLK_PIN, AUDIO_I2S_BCLK_PIN, AUDIO_I2S_WS_PIN,
-           AUDIO_I2S_DOUT_PIN);
+
+  ESP_LOGI(LOGTAG, "I2S TX ready mclk=%d bclk=%d ws=%d dout=%d mclk_mult=%lu",
+           AUDIO_I2S_MCLK_PIN, AUDIO_I2S_BCLK_PIN, AUDIO_I2S_WS_PIN, AUDIO_I2S_DOUT_PIN,
+           (unsigned long)AUDIO_MCLK_MULTIPLE);
   return true;
 }
 
@@ -126,17 +134,18 @@ static void enqueue(const uint8_t* data, size_t len, const char* name) {
 
 bool begin() {
   pinMode(AUDIO_PA_ENABLE_PIN, OUTPUT);
-  setPa(true);  // enable amp early so a boot beep / first play is audible
-  ESP_LOGI(LOGTAG, "PA enable pin=%d active_high=%d level=%d", AUDIO_PA_ENABLE_PIN,
-           AUDIO_PA_ACTIVE_HIGH ? 1 : 0, digitalRead(AUDIO_PA_ENABLE_PIN));
+  setPa(false);
 
   if (!initI2sTx()) {
     return false;
   }
 
+  // ES8311 codec init (uses I2C bus already configured by RFID)
   if (es8311_codec_init() != ESP_OK) {
     ESP_LOGE(LOGTAG, "ES8311 init failed");
-    i2s_driver_uninstall(static_cast<i2s_port_t>(AUDIO_I2S_PORT));
+    i2s_channel_disable(txHandle);
+    i2s_del_channel(txHandle);
+    txHandle = nullptr;
     return false;
   }
 
@@ -155,7 +164,7 @@ bool begin() {
   ready = true;
   const unsigned pcm_ms =
       (unsigned)(assets_audio_login_raw_len * 1000ull / (AUDIO_SAMPLE_RATE * 2 * 2));
-  ESP_LOGI(LOGTAG, "Audio ready — boot beep is %u ms of PCM (%u bytes)", pcm_ms,
+  ESP_LOGI(LOGTAG, "Audio ready — boot sound is %u ms of PCM (%u bytes)", pcm_ms,
            (unsigned)assets_audio_login_raw_len);
   enqueue(assets_audio_login_raw, assets_audio_login_raw_len, "boot/login");
   return true;
