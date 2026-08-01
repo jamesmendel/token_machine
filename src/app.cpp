@@ -165,6 +165,7 @@ void tick(uint32_t nowMs) {
   uint32_t idleMs = nowMs - lastActivityMs;
 
   if (idleMs >= SESSION_LOGOUT_MS) {
+    Audio::playLogout();
     enterIdle();
     return;
   }

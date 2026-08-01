@@ -11,6 +11,7 @@
 #include "es8311.h"
 
 #include "audio_data/sound_login.h"
+#include "audio_data/sound_logout.h"
 #include "audio_data/sound_token.h"
 
 namespace Audio {
@@ -46,7 +47,6 @@ static void playTask(void* /*arg*/) {
     ESP_LOGI(LOGTAG, "Playing %s (%u bytes, ~%u ms PCM)", req.name ? req.name : "?",
              (unsigned)req.len,
              (unsigned)(req.len * 1000ull / (AUDIO_SAMPLE_RATE * 2 * 2)));
-    setPa(true);
 
     size_t offset = 0;
     while (offset < req.len) {
@@ -68,7 +68,6 @@ static void playTask(void* /*arg*/) {
     }
     // Let DMA finish shifting out the last buffers
     vTaskDelay(pdMS_TO_TICKS(80));
-    setPa(false);
     ESP_LOGI(LOGTAG, "Play done (%u/%u bytes)", (unsigned)offset, (unsigned)req.len);
   }
 }
@@ -134,7 +133,7 @@ static void enqueue(const uint8_t* data, size_t len, const char* name) {
 
 bool begin() {
   pinMode(AUDIO_PA_ENABLE_PIN, OUTPUT);
-  setPa(false);
+  setPa(true);
 
   if (!initI2sTx()) {
     return false;
@@ -164,14 +163,17 @@ bool begin() {
   ready = true;
   const unsigned pcm_ms =
       (unsigned)(assets_audio_login_raw_len * 1000ull / (AUDIO_SAMPLE_RATE * 2 * 2));
-  ESP_LOGI(LOGTAG, "Audio ready — boot sound is %u ms of PCM (%u bytes)", pcm_ms,
-           (unsigned)assets_audio_login_raw_len);
+
   enqueue(assets_audio_login_raw, assets_audio_login_raw_len, "boot/login");
   return true;
 }
 
 void playLogin() {
   enqueue(assets_audio_login_raw, assets_audio_login_raw_len, "login");
+}
+
+void playLogout() {
+  enqueue(assets_audio_logout_raw, assets_audio_logout_raw_len, "logout");
 }
 
 void playToken() {
