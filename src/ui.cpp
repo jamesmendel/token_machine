@@ -50,7 +50,7 @@ void begin() {
 void showIdle() {
   onDashboard = false;
   lcd.fillScreen(COL_BG);
-  drawCentered("Waiting for card...", lcd.height() / 2, 4, COL_FG);
+  drawCentered("Tap card to login", lcd.height() / 2, 4, COL_FG);
 }
 
 void showDashboard(const String& name, uint32_t tokens, bool tagPresent, int logoutSeconds) {
