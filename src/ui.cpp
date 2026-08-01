@@ -2,6 +2,8 @@
 
 #include <TFT_eSPI.h>
 #include "config.h"
+#include "image_data/logo_broomfield_stem.h"
+#include "image_data/logo_broomfield_robotics.h"
 
 namespace Ui {
 
@@ -50,7 +52,15 @@ void begin() {
 void showIdle() {
   onDashboard = false;
   lcd.fillScreen(COL_BG);
-  drawCentered("Tap card to login", lcd.height() / 2, 4, COL_FG);
+
+  // Render Broomfield STEM logo — 20px padding each side, 8bpp indexed
+  int16_t logoX = (lcd.width()  - logo_broomfield_robotics_width)  / 2;
+  int16_t logoY = 40;
+  lcd.pushImage(logoX, logoY, logo_broomfield_robotics_width, logo_broomfield_robotics_height,
+                logo_broomfield_robotics_data, true);
+
+  // int16_t textY = logoY + logo_broomfield_stem_height + 50;
+  drawCentered("Tap card to login", 170, 4, COL_FG);
 }
 
 void showDashboard(const String& name, uint32_t tokens, bool tagPresent, int logoutSeconds) {
