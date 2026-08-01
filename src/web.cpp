@@ -73,6 +73,7 @@ static const char INDEX_HTML[] PROGMEM = R"HTML(
 
   <section>
     <h2>Registered tags</h2>
+    <p class="sub" id="totalTokens" style="margin:0 0 0.5rem">Team total tokens: 0</p>
     <table>
       <colgroup>
         <col class="uid"/>
@@ -128,6 +129,8 @@ async function loadTags() {
         '</div></td>';
       tb.appendChild(tr);
     });
+    const total = tags.reduce((sum, t) => sum + (t.tokens || 0), 0);
+    document.getElementById('totalTokens').textContent = 'Team total tokens: ' + total;
     if (!tags.length) setMsg('listMsg', 'No tags registered yet.', true);
     else setMsg('listMsg', '', true);
   } catch(e) {
