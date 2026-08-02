@@ -5,6 +5,7 @@
 #include "rfid.h"
 #include "tag_db.h"
 #include "ui.h"
+#include "version.h"
 #include "web.h"
 
 static const char* LOGTAG = "SETUP";
@@ -16,6 +17,14 @@ void setup() {
   ESP_LOGI(LOGTAG, "CPU: %d MHz, %d cores", ESP.getCpuFreqMHz(), ESP.getChipCores());
   ESP_LOGI(LOGTAG, "Flash: %d KB, SDK: %s", ESP.getFlashChipSize() / 1024, ESP.getSdkVersion());
   ESP_LOGI(LOGTAG, "Free heap: %d bytes", ESP.getFreeHeap());
+  ESP_LOGI(LOGTAG, "Build: " GIT_BRANCH "/" GIT_COMMIT
+#ifdef GIT_TAG
+    " (" GIT_TAG ")"
+#endif
+#ifdef GIT_DIRTY
+    " (dirty)"
+#endif
+  );
   ESP_LOGI(LOGTAG, "------------------------------------------");
 
   if (!TagDb::begin()) {

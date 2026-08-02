@@ -8,6 +8,7 @@
 #include "config.h"
 #include "tag_db.h"
 #include "rfid.h"
+#include "version.h"
 
 namespace Web {
 
@@ -50,6 +51,7 @@ static const char INDEX_HTML[] PROGMEM = R"HTML(
   .msg.err { color:var(--danger); }
   .msg.ok { color:#6bcf8e; }
   .last { font-family:ui-monospace,monospace; font-size:0.75rem; word-break:break-all; }
+  .footer { text-align:center; font-size:0.65rem; color:var(--muted); margin:1rem 0 0.25rem; font-family:ui-monospace,monospace; }
 </style>
 </head>
 <body>
@@ -180,6 +182,15 @@ async function deleteTag(uid) {
   }
 }
 
+async function loadVersion() {
+  try {
+    const j = await api('/api/version');
+    document.getElementById('versionInfo').textContent = 'Version: ' + j.version;
+  } catch(e) {
+    document.getElementById('versionInfo').textContent = 'Version: (unknown)';
+  }
+}
+
 async function registerTag() {
   const name = document.getElementById('regName').value.trim();
   if (!name) { setMsg('regMsg', 'Enter a name', false); return; }
@@ -200,8 +211,10 @@ async function registerTag() {
 
 refreshLast();
 loadTags();
+loadVersion();
 setInterval(refreshLast, 2000);
 </script>
+<p class="footer" id="versionInfo">Loading...</p>
 </body>
 </html>
 )HTML";
@@ -289,6 +302,30 @@ bool begin() {
   server.on("/api/last_uid", HTTP_GET, [](AsyncWebServerRequest* request) {
     JsonDocument doc;
     doc["uid"] = Rfid::lastUid();
+    String out;
+    serializeJson(doc, out);
+    sendJson(request, 200, out);
+  });
+
+  server.on("/api/version", HTTP_GET, [](AsyncWebServerRequest* request) {
+    JsonDocument doc;
+    doc["branch"] = GIT_BRANCH;
+    doc["commit"] = GIT_COMMIT;
+#ifdef GIT_TAG
+    doc["tag"] = GIT_TAG;
+#endif
+#ifdef GIT_DIRTY
+    doc["dirty"] = true;
+#endif
+    // Build a concise version string
+    String ver = String(GIT_BRANCH) + "/" + GIT_COMMIT;
+#ifdef GIT_TAG
+    ver += " (" + String(GIT_TAG) + ")";
+#endif
+#ifdef GIT_DIRTY
+    ver += " (dirty)";
+#endif
+    doc["version"] = ver;
     String out;
     serializeJson(doc, out);
     sendJson(request, 200, out);

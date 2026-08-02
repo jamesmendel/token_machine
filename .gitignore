@@ -6,3 +6,4 @@ assets/audio/*.raw
 .vscode/ipch
 .vscode/extension.json
 .vscode/extensions.json
+src/version.h
