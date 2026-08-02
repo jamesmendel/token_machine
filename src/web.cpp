@@ -57,7 +57,7 @@ static const char INDEX_HTML[] PROGMEM = R"HTML(
   <p class="sub">Admin panel</p>
 
   <section>
-    <h2>Register tag</h2>
+    <h2>New tag registration</h2>
     <p class="sub" style="margin:0 0 0.5rem">Present a tag to the reader, then enter a name.</p>
     <div class="row">
       <span>Last UID:</span>
@@ -279,7 +279,6 @@ bool begin() {
   });
 
   server.onNotFound([&](AsyncWebServerRequest *request){
-      ESP_LOGW("WEB", "NOT FOUND: %s - Serving index", request->url());
       request->send(404); 
   });
 

@@ -1,6 +1,7 @@
 #include "tag_db.h"
 
 #include <Preferences.h>
+#include <ArduinoJson.h>
 
 namespace TagDb {
 
@@ -8,36 +9,19 @@ static Preferences prefs;
 static std::vector<TagRecord> cache;
 static bool ready = false;
 
-static String jsonEscape(const String& s) {
-  String out;
-  out.reserve(s.length() + 4);
-  for (size_t i = 0; i < s.length(); i++) {
-    char c = s[i];
-    if (c == '"' || c == '\\') {
-      out += '\\';
-      out += c;
-    } else if (c == '\n') {
-      out += "\\n";
-    } else if (c >= 32) {
-      out += c;
-    }
-  }
-  return out;
-}
-
 static String serialize() {
-  String json = "[";
-  for (size_t i = 0; i < cache.size(); i++) {
-    if (i > 0) json += ',';
-    json += "{\"uid\":\"";
-    json += jsonEscape(cache[i].uid);
-    json += "\",\"name\":\"";
-    json += jsonEscape(cache[i].name);
-    json += "\",\"tokens\":";
-    json += String(cache[i].tokens);
-    json += '}';
+  JsonDocument doc;
+  JsonArray arr = doc.to<JsonArray>();
+
+  for (const auto& rec : cache) {
+    JsonObject obj = arr.add<JsonObject>();
+    obj["uid"] = rec.uid;
+    obj["name"] = rec.name;
+    obj["tokens"] = rec.tokens;
   }
-  json += ']';
+
+  String json;
+  serializeJson(doc, json);
   return json;
 }
 
@@ -58,114 +42,38 @@ static bool persist() {
   return written > 0;
 }
 
-// Minimal parser for [{"uid":"...","name":"...","tokens":N},...]
 static bool parse(const String& json) {
   cache.clear();
-  int i = 0;
-  const int n = (int)json.length();
+  if (json.length() == 0) return true;
 
-  auto skipWs = [&]() {
-    while (i < n && (json[i] == ' ' || json[i] == '\n' || json[i] == '\r' || json[i] == '\t')) i++;
-  };
-
-  auto match = [&](char c) -> bool {
-    skipWs();
-    if (i < n && json[i] == c) {
-      i++;
-      return true;
-    }
-    return false;
-  };
-
-  auto parseString = [&](String& out) -> bool {
-    skipWs();
-    if (i >= n || json[i] != '"') return false;
-    i++;
-    out = "";
-    while (i < n && json[i] != '"') {
-      if (json[i] == '\\' && i + 1 < n) {
-        i++;
-        out += json[i++];
-      } else {
-        out += json[i++];
-      }
-    }
-    if (i >= n || json[i] != '"') return false;
-    i++;
-    return true;
-  };
-
-  auto parseUint = [&](uint32_t& out) -> bool {
-    skipWs();
-    if (i >= n || !isDigit(json[i])) return false;
-    uint32_t v = 0;
-    while (i < n && isDigit(json[i])) {
-      v = v * 10 + (uint32_t)(json[i] - '0');
-      i++;
-    }
-    out = v;
-    return true;
-  };
-
-  skipWs();
-  if (!match('[')) {
-    if (json.length() == 0) return true;
+  JsonDocument doc;
+  DeserializationError err = deserializeJson(doc, json);
+  if (err) {
+    ESP_LOGW("TAGDB", "Parse error: %s", err.c_str());
     return false;
   }
 
-  skipWs();
-  if (match(']')) return true;
+  JsonArray arr = doc.as<JsonArray>();
+  if (arr.isNull()) return false;
 
-  while (true) {
-    if (!match('{')) return false;
+  for (JsonObject obj : arr) {
+    const char* uid = obj["uid"];
+    const char* name = obj["name"];
+    uint32_t tokens = obj["tokens"] | 0UL;
 
-    TagRecord rec;
-    bool gotUid = false, gotName = false, gotTokens = false;
-
-    while (true) {
-      String key;
-      if (!parseString(key)) return false;
-      if (!match(':')) return false;
-
-      if (key == "uid") {
-        if (!parseString(rec.uid)) return false;
-        gotUid = true;
-      } else if (key == "name") {
-        if (!parseString(rec.name)) return false;
-        gotName = true;
-      } else if (key == "tokens") {
-        if (!parseUint(rec.tokens)) return false;
-        gotTokens = true;
-      } else {
-        // skip unknown value (string or number)
-        skipWs();
-        if (i < n && json[i] == '"') {
-          String tmp;
-          if (!parseString(tmp)) return false;
-        } else if (i < n && isDigit(json[i])) {
-          uint32_t tmp;
-          if (!parseUint(tmp)) return false;
-        } else {
-          return false;
-        }
+    if (uid && name) {
+      TagRecord rec;
+      rec.uid = String(uid);
+      rec.name = String(name);
+      if (rec.name.length() > TAG_NAME_MAX) {
+        rec.name = rec.name.substring(0, TAG_NAME_MAX);
       }
-
-      skipWs();
-      if (match(',')) continue;
-      if (match('}')) break;
-      return false;
-    }
-
-    if (gotUid && gotName && gotTokens) {
-      if (rec.name.length() > TAG_NAME_MAX) rec.name = rec.name.substring(0, TAG_NAME_MAX);
+      rec.tokens = tokens;
       cache.push_back(rec);
     }
-
-    skipWs();
-    if (match(',')) continue;
-    if (match(']')) return true;
-    return false;
   }
+
+  return true;
 }
 
 bool begin() {
