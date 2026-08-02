@@ -117,6 +117,7 @@ async function refreshLast() {
 async function loadTags() {
   try {
     const tags = await api('/api/tags');
+    tags.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
     const tb = document.getElementById('tbody');
     tb.innerHTML = '';
     tags.forEach(tag => {
