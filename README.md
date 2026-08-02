@@ -1,6 +1,8 @@
 ## Token Machine
 An ESP32-S3 based token counter based on RFID tags.
 
+![Animated gif demonstrating token machine usage](assets/images/use_demo.gif)
+
 **Use case**: Broomfield STEM chapter of FIRST Lego League encourages participants to recognize behavior of other students demonstrates the FIRST core values. At the end of sessions, they record their recognize points (a.k.a: "High Fives") in this system which tracks the through the year. When they meet milestones, (e.g. 10, 30, 100), they can redeem them for small prizes.
 
 Features:
@@ -23,6 +25,46 @@ Built with PlatformIO.
   - 4 seconds of no activity goes back to the idle screen.
   - 3 seconds of inactivity starts a countdown "Logging out in x seconds"
 
+#### Software Architecture
+
+The following diagrams illustrate the high-level system architecture and the application state machine driving the main interface.
+
+```mermaid
+graph TD
+    subgraph "Token Machine — ESP32-S3"
+        direction TB
+        App["App Controller\napp.cpp"]
+        UI["UI Layer\nui.cpp (TFT_eSPI)\nTFT LCD 320×240"]
+        RFID_IF["RFID Interface\nrfid.cpp\nMFRC522 I2C"]
+        Audio_IF["Audio Interface\naudio.cpp + es8311\nI2S Codec + Speaker"]
+        Web_IF["Web Server\nweb.cpp\nESPAsyncWebServer"]
+        TagDB[("Tag Database\ntag_db.cpp\nPreferences / NVS")]
+    end
+
+    User(["User"]) -->|"Presents RFID Tag"| RFID_IF
+    RFID_IF -->|"RfidEvent\n(Appeared / Disappeared)"| App
+    App -->|"showDashboard / showIdle\n/ showUnknown"| UI
+    App -->|"playLogin / playLogout\n/ playToken"| Audio_IF
+    App -->|"get / upsert / setTokens"| TagDB
+    Admin(["Admin (Browser)"]) -->|"HTTP REST API"| Web_IF
+    Web_IF -->|"CRUD operations"| TagDB
+    Web_IF -->|"lastUid()"| RFID_IF
+```
+
+#### Application State Machine
+
+```mermaid
+stateDiagram-v2
+    [*] --> Idle
+    Idle --> Dashboard : RFID Appeared\n(registered tag)
+    Idle --> Unknown : RFID Appeared\n(unregistered tag)
+    Unknown --> Idle : Unknown timeout (3s)\nor RFID Disappeared
+    Dashboard --> Countdown : Idle for 1s\n→ show countdown
+    Countdown --> Dashboard : RFID activity\n→ reset countdown
+    Countdown --> Idle : Idle for 4s total\n→ playLogout()\n→ enterIdle()
+    Dashboard --> Dashboard : Tag removed +\nre-presented\n→ increment tokens
+```
+
 ### Web Interface
 Default access point:
 | SSID     | TokenMachine |
@@ -37,6 +79,60 @@ The device starts a hotspot with single-page admin panel. It implements the foll
 The database is stored with esp32 perfs library.
 
 This format allows referencing the tag database without the tag being preset. Of course, the data could also be updated on the RFID tag each time its presented, but the ESP32 is the master of the database state.
+
+![Screenshot of web interface](assets/images/web_demo.png)
+
+#### REST API
+
+The web server exposes a JSON-based REST API at `http://tokens.local/` (or via the SoftAP IP address). Below is an overview of the available endpoints.
+
+```mermaid
+sequenceDiagram
+    participant Browser as Admin Browser
+    participant Web as Web Server (port 80)
+    participant RFID as RFID Reader
+    participant DB as TagDB (NVS)
+
+    Note over Browser,DB: List all tags
+    Browser->>Web: GET /api/tags
+    Web->>DB: listAll()
+    DB-->>Web: TagRecord[]
+    Web-->>Browser: 200 [{"uid","name","tokens"}, …]
+
+    Note over Browser,DB: Register new tag
+    Browser->>Web: POST /api/tags {"name":"Alice"}
+    Web->>RFID: lastUid()
+    RFID-->>Web: "a1b2c3d4"
+    Web->>DB: upsert("a1b2c3d4","Alice",0)
+    DB-->>Web: ok
+    Web-->>Browser: 200 {"ok":true}
+
+    Note over Browser,DB: Update tokens / name
+    Browser->>Web: PUT /api/tags/a1b2c3d4 {"tokens":5}
+    Web->>DB: upsert("a1b2c3d4","Alice",5)
+    DB-->>Web: ok
+    Web-->>Browser: 200 {"ok":true}
+
+    Note over Browser,DB: Delete tag
+    Browser->>Web: DELETE /api/tags/a1b2c3d4
+    Web->>DB: remove("a1b2c3d4")
+    DB-->>Web: ok
+    Web-->>Browser: 200 {"ok":true}
+
+    Note over Browser,DB: Check system status
+    Browser->>Web: GET /api/status
+    Web-->>Browser: 200 {"version":"main/abc123", "dirty":false}
+```
+
+| Method | Endpoint                 | Description                        | Request Body                     |
+|--------|--------------------------|------------------------------------|----------------------------------|
+| GET    | `/api/tags`              | List all registered tags           | —                                |
+| POST   | `/api/tags`              | Register / upsert a tag            | `{"name":"…", "uid?":"…", "tokens?":N}` |
+| PUT    | `/api/tags/{uid}`        | Update an existing tag's fields     | `{"name?":"…", "tokens?":N}`     |
+| DELETE | `/api/tags/{uid}`        | Delete a tag record                | —                                |
+| GET    | `/api/status`            | Get build version                  | —                                |
+
+> **Note**: If `uid` is omitted from `POST /api/tags`, the server uses the most recently scanned tag via `Rfid::lastUid()`.
 
 ## Coding structure
 Generally, the code is modularized at a subsystem level:
