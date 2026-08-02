@@ -2,7 +2,6 @@
 
 #include <TFT_eSPI.h>
 #include "config.h"
-#include "image_data/logo_broomfield_stem.h"
 #include "image_data/logo_broomfield_robotics.h"
 
 namespace Ui {
