@@ -56,13 +56,13 @@ graph TD
 ```mermaid
 stateDiagram-v2
     [*] --> Idle
-    Idle --> Dashboard : RFID Appeared\n(registered tag)
-    Idle --> Unknown : RFID Appeared\n(unregistered tag)
-    Unknown --> Idle : Unknown timeout (3s)\nor RFID Disappeared
-    Dashboard --> Countdown : Idle for 1s\n→ show countdown
-    Countdown --> Dashboard : RFID activity\n→ reset countdown
-    Countdown --> Idle : Idle for 4s total\n→ playLogout()\n→ enterIdle()
-    Dashboard --> Dashboard : Tag removed +\nre-presented\n→ increment tokens
+    Idle --> Dashboard : RFID Appeared<br>(registered tag)
+    Idle --> Unknown : RFID Appeared<br>(unregistered tag)
+    Unknown --> Idle : Unknown timeout (3s)<br>or RFID Disappeared
+    Dashboard --> Countdown : Idle for 1s<br>→ show countdown
+    Countdown --> Dashboard : RFID activity<br>→ reset countdown
+    Countdown --> Idle : Idle for 4s total<br>→ playLogout()<br>→ enterIdle()
+    Dashboard --> Dashboard : Tag removed +<br>re-presented<br>→ increment tokens
 ```
 
 ### Web Interface
