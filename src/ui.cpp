@@ -62,14 +62,22 @@ void showIdle() {
   drawCentered("Tap card to login", 170, 4, COL_FG);
 }
 
-void showDashboard(const String& name, uint32_t tokens, bool tagPresent, int logoutSeconds) {
+void showDashboard(const String& name, uint32_t totalTokens, uint32_t sessionAdded, bool tagPresent, int logoutSeconds) {
   onDashboard = true;
   lcd.fillScreen(COL_BG);
 
-  drawCentered(name, 50, 4, COL_ACCENT);
-  drawCentered("High Fives", 100, 2, COL_MUTED);
-  drawCentered(String(tokens), 140, 6, COL_FG);
-  drawCentered("Tap card again to add High Fives", 195, 2, COL_MUTED);
+  drawCentered(name, 35, 4, COL_ACCENT);
+
+  // Session added tokens
+  String addedStr = "+" + String(sessionAdded);
+  drawCentered(addedStr, 95, 6, COL_FG);
+  drawCentered("High Fives added", 130, 2, COL_MUTED);
+
+  // Total token count
+  String totalStr = "Your total: " + String(totalTokens);
+  drawCentered(totalStr, 165, 2, COL_MUTED);
+
+  drawCentered("Tap card again to add High Fives", 200, 2, COL_MUTED);
 
   if (logoutSeconds >= 0) {
     String msg = "Logging out in ";

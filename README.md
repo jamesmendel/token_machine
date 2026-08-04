@@ -18,12 +18,15 @@ Built with PlatformIO.
 ## Overview
 ### Main Interface
 - The user presents their personal RFID tag to the system. The screen changes from Idle state: "Tap card to login" to the Dashboard state.
-- The tag UID is looked up in the persistent tag database `tag_db` to pull their name and current token count, which is displayed on the Dashboard
-  - A prompt "Tap card again to add high fives" is shown on this dashboard panel.
+- The tag UID is looked up in the persistent tag database `tag_db` to pull their name and current token count.
+  - The session added tokens (e.g. "+2") are displayed prominently on the dashboard.
+  - The user's total token count is shown less prominently beneath it ("Your total: N").
+  - A prompt "Tap card again to add High Fives" is shown on this dashboard panel.
   - From here, successively removing and re-presenting the tag increments the user's token count.
-- There is a main and secondary activity timeout:
-  - 4 seconds of no activity goes back to the idle screen.
-  - 3 seconds of inactivity starts a countdown "Logging out in x seconds"
+- Idle timeout behavior:
+  - If the tag is still on the reader, no countdown occurs.
+  - Once the tag is removed, a 1-second idle triggers a countdown ("Logging out in x seconds").
+  - After 4 total idle seconds the system returns to the idle screen.
 
 #### Software Architecture
 
@@ -59,10 +62,11 @@ stateDiagram-v2
     Idle --> Dashboard : RFID Appeared<br>(registered tag)
     Idle --> Unknown : RFID Appeared<br>(unregistered tag)
     Unknown --> Idle : Unknown timeout (3s)<br>or RFID Disappeared
-    Dashboard --> Countdown : Idle for 1s<br>→ show countdown
+    Dashboard --> Countdown : Tag removed +<br>idle 1s<br>→ show countdown
     Countdown --> Dashboard : RFID activity<br>→ reset countdown
     Countdown --> Idle : Idle for 4s total<br>→ playLogout()<br>→ enterIdle()
     Dashboard --> Dashboard : Tag removed +<br>re-presented<br>→ increment tokens
+    note right of Dashboard : Tag still on reader?<br>No countdown runs.
 ```
 
 ### Web Interface
