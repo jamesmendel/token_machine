@@ -18,7 +18,8 @@ static State state = State::Idle;
 static String sessionUid;
 static String sessionName;
 static uint32_t sessionTokens = 0;
-static bool tagWasRemoved = false;  // true after Disappeared while in session
+static uint32_t sessionTokensAdded = 0;
+static bool tagWasRemoved = false;
 static bool tagPresent = false;
 static uint32_t lastActivityMs = 0;
 static int lastCountdownShown = -1;
@@ -29,6 +30,7 @@ static void enterIdle() {
   sessionUid = "";
   sessionName = "";
   sessionTokens = 0;
+  sessionTokensAdded = 0;
   tagWasRemoved = false;
   tagPresent = false;
   lastCountdownShown = -1;
@@ -37,7 +39,7 @@ static void enterIdle() {
 }
 
 static void refreshDashboard(int logoutSeconds = -1) {
-  Ui::showDashboard(sessionName, sessionTokens, tagPresent, logoutSeconds);
+  Ui::showDashboard(sessionName, sessionTokens, sessionTokensAdded, tagPresent, logoutSeconds);
 }
 
 static void enterDashboard(const String& uid, const String& name, uint32_t tokens, bool increment) {
@@ -47,10 +49,12 @@ static void enterDashboard(const String& uid, const String& name, uint32_t token
 
   if (increment) {
     sessionTokens++;
+    sessionTokensAdded++;
     TagDb::setTokens(sessionUid, sessionTokens);
-    ESP_LOGI("APP", "Increment %s -> %u", sessionUid.c_str(), (unsigned)sessionTokens);
+    ESP_LOGI("APP", "Increment %s -> %u (session +%u)", sessionUid.c_str(), (unsigned)sessionTokens, (unsigned)sessionTokensAdded);
     Audio::playToken();
   } else {
+    sessionTokensAdded = 0;
     Audio::playLogin();
   }
 
@@ -159,6 +163,11 @@ void tick(uint32_t nowMs) {
   }
 
   if (state != State::Dashboard && state != State::Countdown) {
+    return;
+  }
+
+  // If the tag is still present near the reader, don't start the idle countdown.
+  if (tagPresent) {
     return;
   }
 
