@@ -18,11 +18,11 @@ static const uint16_t COL_ABSENT = TFT_DARKGREY;
 static bool onDashboard = false;
 static bool tagPresentDrawn = false;
 
-static const int16_t PROX_R = 8;
-static const int16_t PROX_MARGIN = 14;
+static const int16_t PROX_R = 12;
+static const int16_t PROX_MARGIN = 18;
 
 static void drawProximityIndicator(bool present) {
-  int16_t x = lcd.width() - PROX_MARGIN;
+  int16_t x = PROX_MARGIN;
   int16_t y = PROX_MARGIN;
   // Clear a small area so outline/fill swaps cleanly
   lcd.fillCircle(x, y, PROX_R + 2, COL_BG);
@@ -34,10 +34,30 @@ static void drawProximityIndicator(bool present) {
   tagPresentDrawn = present;
 }
 
-static void drawCentered(const String& text, int16_t y, uint8_t font, uint16_t color) {
+static void drawCentered(const String& text, int16_t y, uint8_t fsize, uint16_t color, bool bold = false) {
+  if(!bold) {
+    switch(fsize) {
+      case 1: lcd.setFreeFont(&FreeSans9pt7b); break;
+      case 2: lcd.setFreeFont(&FreeSans12pt7b); break;
+      case 3: lcd.setFreeFont(&FreeSans18pt7b); break;
+      case 4: lcd.setFreeFont(&FreeSans24pt7b); break;
+      default: lcd.setFreeFont(&FreeSans12pt7b); break;
+    }
+  }
+  else {
+      switch(fsize) {
+        case 1: lcd.setFreeFont(&FreeSansBold9pt7b); break;
+        case 2: lcd.setFreeFont(&FreeSansBold12pt7b); break;
+        case 3: lcd.setFreeFont(&FreeSansBold18pt7b); break;
+        case 4: lcd.setFreeFont(&FreeSansBold24pt7b); break;
+        default: lcd.setFreeFont(&FreeSansBold12pt7b); break;
+      }
+    }
+
   lcd.setTextDatum(MC_DATUM);
   lcd.setTextColor(color, COL_BG);
-  lcd.drawString(text, lcd.width() / 2, y, font);
+  lcd.drawString(text, lcd.width() / 2, y);
+  // lcd.drawString(text, lcd.width() / 2, y, font);
 }
 
 void begin() {
@@ -59,31 +79,31 @@ void showIdle() {
                 logo_broomfield_robotics_data, true);
 
   // int16_t textY = logoY + logo_broomfield_stem_height + 50;
-  drawCentered("Tap card to login", 170, 4, COL_FG);
+  drawCentered("Tap card to login", 170, 3, COL_FG);
 }
 
 void showDashboard(const String& name, uint32_t totalTokens, uint32_t sessionAdded, bool tagPresent, int logoutSeconds) {
   onDashboard = true;
   lcd.fillScreen(COL_BG);
 
-  drawCentered(name, 35, 4, COL_ACCENT);
+  drawCentered(name, 35, 3, COL_ACCENT);
 
   // Session added tokens
   String addedStr = "+" + String(sessionAdded);
-  drawCentered(addedStr, 95, 6, COL_FG);
-  drawCentered("High Fives added", 130, 2, COL_MUTED);
+  drawCentered(addedStr, 95, 3, COL_FG, true);
+  drawCentered("High Fives added", 130, 1, COL_FG);
 
   // Total token count
   String totalStr = "Your total: " + String(totalTokens);
-  drawCentered(totalStr, 165, 2, COL_MUTED);
+  drawCentered(totalStr, 175, 1, COL_MUTED);
 
-  drawCentered("Tap card again to add High Fives", 200, 2, COL_MUTED);
+  drawCentered("Tap card again to add High Fives", 200, 1, COL_MUTED);
 
   if (logoutSeconds >= 0) {
     String msg = "Logging out in ";
     msg += String(logoutSeconds);
     msg += " seconds.";
-    drawCentered(msg, 225, 2, COL_WARN);
+    drawCentered(msg, 225, 1, COL_WARN);
   }
 
   drawProximityIndicator(tagPresent);
@@ -97,9 +117,9 @@ void setTagPresent(bool present) {
 void showUnknown(const String& uid) {
   onDashboard = false;
   lcd.fillScreen(COL_BG);
-  drawCentered("Unknown card", lcd.height() / 2 - 20, 4, COL_WARN);
+  drawCentered("Unknown card", lcd.height() / 2 - 20, 3, COL_WARN);
   if (uid.length() > 0) {
-    drawCentered(uid, lcd.height() / 2 + 20, 2, COL_MUTED);
+    drawCentered(uid, lcd.height() / 2 + 20, 1, COL_MUTED);
   }
 }
 
