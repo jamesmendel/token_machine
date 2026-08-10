@@ -7,7 +7,7 @@ static const uint8_t RFID_I2C_ADDR = 0x28;
 static const int RFID_SDA_PIN = 16;
 static const int RFID_SCL_PIN = 15;
 static const int RFID_RST_PIN = 42;  // dummy: RST not wired (chip always enabled)
-static const uint8_t RFID_GONE_DEBOUNCE_POLLS = 4;
+static const uint8_t RFID_GONE_DEBOUNCE_POLLS = 2;
 static const uint32_t RFID_POLL_INTERVAL_MS = 50;
 
 // Audio (ES8311 + I2S speaker)
