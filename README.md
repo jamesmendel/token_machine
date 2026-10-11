@@ -91,8 +91,10 @@ charger-status or USB-detect GPIO, so battery state is derived entirely from the
   noise cannot toggle the state. When detected, `Charging <n>%` (with the estimated
   state-of-charge) is shown in green on the idle screen. This is heuristic — a rise is
   required, so a topped-off battery may read as "not charging".
-- The web panel footer shows the live voltage and estimated state-of-charge, refreshed on
-  the same 1 s tick as the last-UID readout.
+- The web panel shows a compact status bar at the top with a green/red dot for
+  connectivity (green while the `battery`/`last_uid` calls succeed), plus the live voltage,
+  state-of-charge and charging/low flags, refreshed on the same 1 s tick as the last-UID
+  readout.
 
 All parameters live in `config.h`.
 

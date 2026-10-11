@@ -53,11 +53,20 @@ static const char INDEX_HTML[] PROGMEM = R"HTML(
   .msg.ok { color:#6bcf8e; }
   .last { font-family:ui-monospace,monospace; font-size:0.75rem; word-break:break-all; }
   .footer { text-align:center; font-size:0.65rem; color:var(--muted); margin:1rem 0 0.25rem; font-family:ui-monospace,monospace; }
+  .status { display:flex; align-items:center; gap:0.5rem; background:var(--card); border:1px solid var(--border); border-radius:10px; padding:0.5rem 0.75rem; margin-bottom:0.75rem; font-size:0.9rem; min-height:2.2rem; }
+  .dot { width:0.7rem; height:0.7rem; border-radius:50%; background:var(--muted); flex:0 0 auto; }
+  .dot.ok { background:#6bcf8e; box-shadow:0 0 6px #6bcf8e; }
+  .dot.err { background:var(--danger); box-shadow:0 0 6px var(--danger); }
 </style>
 </head>
 <body>
   <h1>Token Machine</h1>
   <p class="sub">Admin panel</p>
+
+  <div class="status" id="statusBar">
+    <span class="dot" id="connDot"></span>
+    <span id="statusText">Connecting&hellip;</span>
+  </div>
 
   <section>
     <h2>New tag registration</h2>
@@ -92,7 +101,14 @@ static const char INDEX_HTML[] PROGMEM = R"HTML(
 
 <script>
 async function api(path, opts) {
-  const r = await fetch(path, opts);
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 3000);
+  let r;
+  try {
+    r = await fetch(path, Object.assign({ cache: 'no-store', signal: ctrl.signal }, opts));
+  } finally {
+    clearTimeout(timer);
+  }
   const t = await r.text();
   let j = null;
   try { j = JSON.parse(t); } catch(e) {}
@@ -110,8 +126,10 @@ async function refreshLast() {
   try {
     const j = await api('/api/last_uid');
     document.getElementById('lastUid').textContent = j.uid || '(none)';
+    return true;
   } catch(e) {
     document.getElementById('lastUid').textContent = '(error)';
+    return false;
   }
 }
 
@@ -211,37 +229,49 @@ async function registerTag() {
   }
 }
 
+let batteryState = null;
+
 async function updateBattery() {
   try {
-    const j = await api('/api/battery');
-    let s = 'Battery: ' + j.voltage.toFixed(2) + ' V (' + j.percent + '%)';
-    if (j.charging) s += ' \u2014 charging';
-    if (j.low) s += ' \u2014 LOW';
-    document.getElementById('batteryInfo').textContent = s;
+    batteryState = await api('/api/battery');
+    return true;
   } catch(e) {
-    document.getElementById('batteryInfo').textContent = 'Battery: (unknown)';
+    batteryState = null;
+    return false;
   }
 }
 
-function tickStatus() {
-  refreshLast();
-  updateBattery();
+function renderStatus(connected) {
+  const dot = document.getElementById('connDot');
+  dot.className = 'dot ' + (connected ? 'ok' : 'err');
+  let s = connected ? 'Connected' : 'Disconnected';
+  if (connected && batteryState) {
+    s += ' \u00b7 ' + batteryState.voltage.toFixed(2) + ' V (' + batteryState.percent + '%)';
+    if (batteryState.charging) s += ' \u00b7 charging';
+    if (batteryState.low) s += ' \u00b7 LOW';
+  }
+  document.getElementById('statusText').textContent = s;
 }
 
-refreshLast();
+async function tickStatus() {
+  const results = await Promise.all([refreshLast(), updateBattery()]);
+  renderStatus(results.some(Boolean));
+}
+
 loadTags();
 loadVersion();
-updateBattery();
+tickStatus();
 setInterval(tickStatus, 1000);
 </script>
-<p class="footer" id="batteryInfo">Battery: loading...</p>
 <p class="footer" id="versionInfo">Loading...</p>
 </body>
 </html>
 )HTML";
 
 static void sendJson(AsyncWebServerRequest* request, int code, const String& body) {
-  request->send(code, "application/json", body);
+  AsyncWebServerResponse* response = request->beginResponse(code, "application/json", body);
+  response->addHeader("Cache-Control", "no-store");
+  request->send(response);
 }
 
 static void sendError(AsyncWebServerRequest* request, int code, const char* msg) {
