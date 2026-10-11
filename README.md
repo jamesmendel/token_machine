@@ -10,6 +10,7 @@ Features:
 - Color TFT LCD interface (320 x 240)
 - Sound effects
 - Web admin panel
+- Battery monitoring (low-battery warning + charging detection)
 
 Built with PlatformIO.
 
@@ -40,6 +41,7 @@ graph TD
         UI["UI Layer\nui.cpp (TFT_eSPI)\nTFT LCD 320×240"]
         RFID_IF["RFID Interface\nrfid.cpp\nMFRC522 I2C"]
         Audio_IF["Audio Interface\naudio.cpp + es8311\nI2S Codec + Speaker"]
+        Batt_IF["Battery Monitor\nbattery.cpp\nADC GPIO9 (½ divider)"]
         Web_IF["Web Server\nweb.cpp\nESPAsyncWebServer"]
         TagDB[("Tag Database\ntag_db.cpp\nPreferences / NVS")]
     end
@@ -48,6 +50,8 @@ graph TD
     RFID_IF -->|"RfidEvent\n(Appeared / Disappeared)"| App
     App -->|"showDashboard / showIdle\n/ showUnknown"| UI
     App -->|"playLogin / playLogout\n/ playToken"| Audio_IF
+    App -->|"tick / low / charging"| Batt_IF
+    Batt_IF -->|"setBatteryStatus"| UI
     App -->|"get / upsert / setTokens"| TagDB
     Admin(["Admin (Browser)"]) -->|"HTTP REST API"| Web_IF
     Web_IF -->|"CRUD operations"| TagDB
@@ -68,6 +72,29 @@ stateDiagram-v2
     Dashboard --> Dashboard : Tag removed +<br>re-presented<br>→ increment tokens
     note right of Dashboard : Tag still on reader?<br>No countdown runs.
 ```
+
+### Battery
+The device is normally battery powered and recharges over USB-C. There is no dedicated
+charger-status or USB-detect GPIO, so battery state is derived entirely from the
+`BAT_ADC` input.
+
+- `BAT_ADC` is wired to **GPIO9** through a one-half ratio resistor divider, so the
+  measured pin voltage is multiplied by `BAT_ADC_DIVIDER` (2) to recover the battery
+  voltage. The ADC uses the factory-calibrated `analogReadMilliVolts()` reading, averaged
+  over `BAT_SAMPLE_COUNT` samples.
+- **Low battery**: while the idle screen is shown, `Low battery` is drawn in orange when
+  the voltage drops below `BAT_LOW_VOLTAGE` (3.4 V, see `config.h`).
+- **Charging** (best-effort): with no charger-status pin, charging is inferred from the
+  trend of the battery voltage. A least-squares regression slope is computed over
+  `BAT_CHARGE_WINDOW_MS` and compared against `BAT_CHARGE_SLOPE_MV_PER_MIN`, with a lower
+  release threshold (`BAT_CHARGE_SLOPE_RELEASE_MV_PER_MIN`) providing hysteresis so ADC
+  noise cannot toggle the state. When detected, `Charging <n>%` (with the estimated
+  state-of-charge) is shown in green on the idle screen. This is heuristic — a rise is
+  required, so a topped-off battery may read as "not charging".
+- The web panel footer shows the live voltage and estimated state-of-charge, refreshed on
+  the same 1 s tick as the last-UID readout.
+
+All parameters live in `config.h`.
 
 ### Web Interface
 Default access point:
@@ -135,6 +162,8 @@ sequenceDiagram
 | PUT    | `/api/tags/{uid}`        | Update an existing tag's fields     | `{"name?":"…", "tokens?":N}`     |
 | DELETE | `/api/tags/{uid}`        | Delete a tag record                | —                                |
 | GET    | `/api/status`            | Get build version                  | —                                |
+| GET    | `/api/last_uid`          | Get most recently scanned tag UID  | —                                |
+| GET    | `/api/battery`           | Get battery voltage/state          | —                                |
 
 > **Note**: If `uid` is omitted from `POST /api/tags`, the server uses the most recently scanned tag via `Rfid::lastUid()`.
 
@@ -147,6 +176,7 @@ Generally, the code is modularized at a subsystem level:
 5. Database - `tag_db.{cpp/h}`
 6. Audio Interface - `audio.{cpp/h}, es8311*.{cpp/h}`
 7. Web Interface - `web.{cpp/h}`
+8. Battery Monitor - `battery.{cpp/h}`
 
 `assets/` are prepared with tools in the `scripts/` folder and placed in `src/*_data`
 

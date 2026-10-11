@@ -1,6 +1,7 @@
 #include "app.h"
 
 #include "audio.h"
+#include "battery.h"
 #include "config.h"
 #include "tag_db.h"
 #include "ui.h"
@@ -96,6 +97,7 @@ static void setSessionTagPresent(bool present) {
 }
 
 void begin() {
+  Ui::setBatteryStatus(Battery::low(), Battery::charging(), Battery::percent());
   enterIdle();
 }
 
@@ -155,6 +157,10 @@ void onRfidEvent(const RfidEvent& event) {
 }
 
 void tick(uint32_t nowMs) {
+  // Battery monitoring runs system-wide, independent of app state.
+  Battery::tick(nowMs);
+  Ui::setBatteryStatus(Battery::low(), Battery::charging(), Battery::percent());
+
   if (state == State::Unknown) {
     if (nowMs - unknownSinceMs >= UNKNOWN_TAG_TIMEOUT_MS) {
       enterIdle();

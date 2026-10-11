@@ -42,5 +42,18 @@ static const size_t TAG_DB_MAX_JSON = 3072;
 static const size_t TAG_NAME_MAX = 32;
 static const size_t TAG_UID_MAX = 16;  // hex chars, null-terminated buffer = 17
 
+// Battery (BAT_ADC on GPIO9 via a one-half ratio resistor divider)
+static const int BAT_ADC_PIN = 9;
+static const float BAT_ADC_DIVIDER = 2.0f;           // 1/2 ratio divider: battery = pin * 2
+static const uint8_t BAT_SAMPLE_COUNT = 8;           // ADC samples averaged per reading
+static const uint32_t BAT_SAMPLE_INTERVAL_MS = 1000;  // sample/refresh period
+static const float BAT_LOW_VOLTAGE = 3.4f;           // low-battery warning threshold (V)
+static const float BAT_FULL_VOLTAGE = 4.2f;          // for state-of-charge estimate
+static const float BAT_EMPTY_VOLTAGE = 3.0f;         // for state-of-charge estimate
+static const uint32_t BAT_CHARGE_WINDOW_MS = 120000;  // regression window for charge slope
+static const float BAT_CHARGE_SLOPE_MV_PER_MIN = 1.0f;         // slope above => charging
+static const float BAT_CHARGE_SLOPE_RELEASE_MV_PER_MIN = -5.0f;  // hysteresis release
+static const uint8_t BAT_CHARGE_MIN_SAMPLES = 20;     // samples needed before estimating
+
 // UI
 static const uint8_t UI_ROTATION = 1;  // landscape 320x240

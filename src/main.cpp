@@ -2,6 +2,7 @@
 
 #include "app.h"
 #include "audio.h"
+#include "battery.h"
 #include "rfid.h"
 #include "tag_db.h"
 #include "ui.h"
@@ -37,6 +38,7 @@ void setup() {
   if (!Audio::begin()) {
     ESP_LOGW(LOGTAG, "Audio init failed (speaker disabled)");
   }
+  Battery::begin();
   if (!Web::begin()) {
     ESP_LOGE(LOGTAG, "Web SoftAP init failed");
   }

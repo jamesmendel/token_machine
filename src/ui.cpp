@@ -17,6 +17,9 @@ static const uint16_t COL_ABSENT = TFT_DARKGREY;
 
 static bool onDashboard = false;
 static bool tagPresentDrawn = false;
+static bool battLow = false;
+static bool battCharging = false;
+static int battPercent = 0;
 
 static const int16_t PROX_R = 12;
 static const int16_t PROX_MARGIN = 18;
@@ -60,6 +63,17 @@ static void drawCentered(const String& text, int16_t y, uint8_t fsize, uint16_t 
   // lcd.drawString(text, lcd.width() / 2, y, font);
 }
 
+static void drawBatteryStatus() {
+  const int16_t y = 218;
+  // Clear a strip so the status swaps cleanly.
+  lcd.fillRect(0, y - 14, lcd.width(), 28, COL_BG);
+  if (battCharging) {
+    drawCentered("Charging " + String(battPercent) + "%", y, 1, COL_PRESENT);
+  } else if (battLow) {
+    drawCentered("Low battery", y, 1, COL_WARN);
+  }
+}
+
 void begin() {
   lcd.init();
   lcd.setRotation(UI_ROTATION);
@@ -80,6 +94,8 @@ void showIdle() {
 
   // int16_t textY = logoY + logo_broomfield_stem_height + 50;
   drawCentered("Tap card to login", 170, 3, COL_FG);
+
+  drawBatteryStatus();
 }
 
 void showDashboard(const String& name, uint32_t totalTokens, uint32_t sessionAdded, bool tagPresent, int logoutSeconds) {
@@ -112,6 +128,15 @@ void showDashboard(const String& name, uint32_t totalTokens, uint32_t sessionAdd
 void setTagPresent(bool present) {
   if (!onDashboard || present == tagPresentDrawn) return;
   drawProximityIndicator(present);
+}
+
+void setBatteryStatus(bool low, bool charging, int percent) {
+  if (low == battLow && charging == battCharging && percent == battPercent) return;
+  battLow = low;
+  battCharging = charging;
+  battPercent = percent;
+  // Only the idle screen surfaces battery status.
+  if (!onDashboard) drawBatteryStatus();
 }
 
 void showUnknown(const String& uid) {

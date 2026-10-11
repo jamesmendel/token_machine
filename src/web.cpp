@@ -5,6 +5,7 @@
 #include <ESPmDNS.h>
 #include <DNSServer.h>
 #include <ArduinoJson.h>
+#include "battery.h"
 #include "config.h"
 #include "tag_db.h"
 #include "rfid.h"
@@ -210,11 +211,30 @@ async function registerTag() {
   }
 }
 
+async function updateBattery() {
+  try {
+    const j = await api('/api/battery');
+    let s = 'Battery: ' + j.voltage.toFixed(2) + ' V (' + j.percent + '%)';
+    if (j.charging) s += ' \u2014 charging';
+    if (j.low) s += ' \u2014 LOW';
+    document.getElementById('batteryInfo').textContent = s;
+  } catch(e) {
+    document.getElementById('batteryInfo').textContent = 'Battery: (unknown)';
+  }
+}
+
+function tickStatus() {
+  refreshLast();
+  updateBattery();
+}
+
 refreshLast();
 loadTags();
 loadVersion();
-setInterval(refreshLast, 2000);
+updateBattery();
+setInterval(tickStatus, 1000);
 </script>
+<p class="footer" id="batteryInfo">Battery: loading...</p>
 <p class="footer" id="versionInfo">Loading...</p>
 </body>
 </html>
@@ -303,6 +323,17 @@ bool begin() {
   server.on("/api/last_uid", HTTP_GET, [](AsyncWebServerRequest* request) {
     JsonDocument doc;
     doc["uid"] = Rfid::lastUid();
+    String out;
+    serializeJson(doc, out);
+    sendJson(request, 200, out);
+  });
+
+  server.on("/api/battery", HTTP_GET, [](AsyncWebServerRequest* request) {
+    JsonDocument doc;
+    doc["voltage"] = Battery::voltage();
+    doc["percent"] = Battery::percent();
+    doc["low"] = Battery::low();
+    doc["charging"] = Battery::charging();
     String out;
     serializeJson(doc, out);
     sendJson(request, 200, out);
